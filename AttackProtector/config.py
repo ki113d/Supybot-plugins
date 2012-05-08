@@ -62,10 +62,11 @@ XpY = internationalizeDocstring(XpY)
 
 class Punishment(registry.String):
     """Value must be a valid punishment ('ban', 'kick', 'kban', 'mode+X',
-    'mode-X', 'command XXX', ...)"""
+    'mode-X', 'umode-X', 'command XXX', ...)"""
     def set(self, s):
         if s not in ('ban', 'kick', 'kban') and not s.startswith('mode+') and \
-                not s.startswith('mode-') and not s.startswith('command '):
+                not s.startswith('mode-') and not s.startswith('umode-') and \
+                not s.startswith('umode+') and not s.startswith('command '):
             self.error()
             return
         self.setValue(s)
@@ -76,6 +77,9 @@ AttackProtector = conf.registerPlugin('AttackProtector')
 # conf.registerGlobalValue(AttackProtector, 'someConfigVariableName',
 #     registry.Boolean(False, """Help for someConfigVariableName."""))
 
+conf.registerChannelValue(AttackProtector, 'enable',
+    registry.Boolean(True, _("""Determines whether or not AttackProtector
+    is enabled on this channel.""")))
 conf.registerGlobalValue(AttackProtector, 'exempt',
     registry.String('nopunish', _("""If a user has this capability, he won't be
         punished by AttackProtector""")))

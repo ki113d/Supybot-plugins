@@ -33,7 +33,7 @@ from supybot.test import *
 import supybot.ircdb as ircdb
 
 class AttackProtectorTestCase(ChannelPluginTestCase):
-    plugins = ('AttackProtector', 'Utilities', 'User')
+    plugins = ('AttackProtector', 'Config', 'Utilities', 'User')
     config = {'supybot.plugins.AttackProtector.join.detection': '5p2',
               'supybot.plugins.AttackProtector.part.punishment':
               'command echo hi !'}
@@ -194,6 +194,19 @@ class AttackProtectorTestCase(ChannelPluginTestCase):
             self.assertError('capabilities')
 
     #################################
+    # Test punishments
+
+    def testDisable(self):
+        for i in range(1, 11):
+            msg = ircmsgs.privmsg(self.channel, 'Hi, this is a flood',
+                                  prefix=self.prefix)
+            self.irc.feedMsg(msg)
+        self.assertNotError('config plugin.AttackProtector.message.punishment '
+                'umode+b')
+        return self._getIfAnswerIsEqual(ircmsgs.IrcMsg(prefix="", command="MODE",
+            args=(self.channel, mode, self.nick)))
+
+    #################################
     # Global tests
     def testCleanCollection(self):
         for i in range(1, 4):
@@ -218,6 +231,15 @@ class AttackProtectorTestCase(ChannelPluginTestCase):
         self.irc.feedMsg(ircmsgs.join(self.channel, prefix=self.prefix))
         self.failIf(self._getIfAnswerIsThisBan(),
                     'Doesn\'t clean the join collection after having banned.')
+
+    def testDisable(self):
+        for i in range(1, 11):
+            msg = ircmsgs.privmsg(self.channel, 'Hi, this is a flood',
+                                  prefix=self.prefix)
+            self.irc.feedMsg(msg)
+        self.assertNotError('config plugin.AttackProtector.enable False')
+        self.failIf(self._getIfAnswerIsThisKick('message'),
+                    'Punishment even if disabled')
 
 
 

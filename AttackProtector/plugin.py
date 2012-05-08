@@ -164,6 +164,8 @@ class AttackProtector(callbacks.Plugin):
 
         if not ircutils.isChannel(channel):
                 return
+        if not self.registryValue('enable', channel):
+            return
 
         try:
             ircdb.users.getUser(msg.prefix) # May raise KeyError
@@ -183,12 +185,15 @@ class AttackProtector(callbacks.Plugin):
             msg = ircmsgs.ban(channel, prefix)
             irc.queueMsg(msg)
         elif punishment == 'kban':
-            msg = ircmsgs.kick(channel, nick, reason)
-            irc.queueMsg(msg)
             msg = ircmsgs.ban(channel, prefix)
+            irc.queueMsg(msg)
+            msg = ircmsgs.kick(channel, nick, reason)
             irc.queueMsg(msg)
         elif punishment.startswith('mode'):
             msg = ircmsgs.mode(channel, punishment[len('mode'):])
+            irc.queueMsg(msg)
+        elif punishment.startswith('umode'):
+            msg = ircmsgs.mode(channel, (punishment[len('umode'):], nick))
             irc.queueMsg(msg)
         elif punishment.startswith('command '):
             tokens = callbacks.tokenize(punishment[len('command '):])
