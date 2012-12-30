@@ -1,5 +1,5 @@
 ###
-# Copyright (c) 2011, Valentin Lorentz
+# Copyright (c) 2012, Valentin Lorentz
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -28,73 +28,45 @@
 
 ###
 
-import time
 import supybot.utils as utils
 from supybot.commands import *
 import supybot.plugins as plugins
 import supybot.ircutils as ircutils
 import supybot.callbacks as callbacks
+
 try:
     from supybot.i18n import PluginInternationalization
     from supybot.i18n import internationalizeDocstring
-    _ = PluginInternationalization('Botnet')
+    _ = PluginInternationalization('MeditationExcuses')
 except:
     # This are useless functions that's allow to run the plugin on a bot
     # without the i18n plugin
     _ = lambda x:x
     internationalizeDocstring = lambda x:x
 
-
-def botnetWrap(function):
-    return wrap(function, [('checkCapability', 'bot'),
-                           ('checkCapability', 'trusted'),
-                           ('something',),         # version
-                           ('something',),         # hashid
-                           ('text',)])             # args
-
 @internationalizeDocstring
-class Botnet(callbacks.Plugin):
-    """Add the help for "@plugin help Botnet" here
+class MeditationExcuses(callbacks.Plugin):
+    """Add the help for "@plugin help MeditationExcuses" here
     This should describe *how* to use this plugin."""
     threaded = True
+    
+    @internationalizeDocstring
+    def meditationexcuse(self, irc, msg, args):
+        """takes no arguments.
 
-    _version = '0.1'
-
-    def _reply(irc, messages, hashid = None):
-        assert len(messages) != 0, 'Empty messages list'
-        if hashid is None:
-            assert len(messages) == 1, ('Queries should not have more than '
-                                        'one message.')
-            messagesHash = hashlib.sha224(messages).hexdigest()
-            hashid = '%i-%s' % (time.time(), messagesHash)
-            irc.reply('botnet query %s %s %s' % (self._version, hashid, msg))
+        Fetch a mediation excuse from http://meditationexcus.es/"""
+        html = utils.web.getUrl('http://meditationexcus.es/').decode()
+        found = False
+        for line in html.split('\n'):
+            if found:
+                break
+            found = (line == "        <small> I didn't meditate because: </small>")
+        if found:
+            irc.reply(line.strip())
         else:
-            if len(messages) > 1:
-                irc.reply('botnet start %s %s' % (self._version, hashid))
-            for message in messages:
-                irc.reply('botnet reply %s %s %s' % (self._version,hashid,msg))
-            if len(messages) > 1:
-                irc.reply('botnet end %s %s' % (self._version, hashid)
-        return hashid
+            irc.error(_('Failed to fetch a meditation excuse.'))
 
-    # Not handled by version 0.1
-    @botnetWrap
-    def start(self, irc, msg, args, version, hashid, text):
-        raise NotImplemented()
-    end = start
-
-    @botnetWrap
-    def reply(self, irc, msg, args, version, hashid, text):
-        splitted = text.split(' ')
-        assert len(splitted) >= 1
-        command, args = splitted[0], ' '.join(splitted[1:])
-
-    @botnetWrap
-    def query(self, irc, msg, args, version, hashid, text):
-        self._reply(irc, [], hashid)
-
-
-Class = Botnet
+Class = MeditationExcuses
 
 
 # vim:set shiftwidth=4 softtabstop=4 expandtab textwidth=79:

@@ -45,18 +45,20 @@ _ = PluginInternationalization('LimnoriaChan')
 WEB_REPO = 'https://github.com/ProgVal/Limnoria'
 PLUGINS_WEB_REPO = 'https://github.com/ProgVal/Supybot-plugins'
 staticFactoids = {
-        'git':          WEB_REPO,
-        'git-pl':       PLUGINS_WEB_REPO,
+        'git':          'git://github.com/ProgVal/Limnoria.git',
+        'git-pl':       'git://github.com/ProgVal/Supybot-plugins.git',
+        'gh':           WEB_REPO,
+        'gh-pl':        PLUGINS_WEB_REPO,
         'wiki':         WEB_REPO + '/wiki',
         'issues':       WEB_REPO + '/issues',
         'issues-pl':    PLUGINS_WEB_REPO + '/issues',
         'supybook':     'http://supybook.fealdia.org/',
         }
 dynamicFactoids = {
-        'git':          WEB_REPO + '/tree/%s',
-        'git-pl':       PLUGINS_WEB_REPO + '/tree/%s',
-        'file':         WEB_REPO + '/blob/%s',
-        'file-pl':      PLUGINS_WEB_REPO + '/blob/%s',
+        'gh':           WEB_REPO + '/tree/master/%s',
+        'gh-pl':        PLUGINS_WEB_REPO + '/tree/master/%s',
+        'file':         WEB_REPO + '/blob/master/%s',
+        'file-pl':      PLUGINS_WEB_REPO + '/blob/master/%s',
         'commit':       WEB_REPO + '/commit/%s',
         'commit-pl':    PLUGINS_WEB_REPO + '/commit/%s',
         'wiki':         WEB_REPO + '/wiki/%s',
@@ -94,9 +96,9 @@ class LimnoriaChan(callbacks.Plugin):
         login = self.registryValue('login')
         token = self.registryValue('token')
         data='title=%s&body=%s&login=%s&token=%s' % (title, body, login, token)
-        url = 'http://github.com/api/v2/json/issues/open/' + repoName
+        url = 'https://api.github.com/repos/' + repoName + '/issues'
         response = json.loads(urllib.urlopen(url, data=data).read())
-        id = response['issue']['number']
+        id = response['number']
         irc.reply('Issue #%i has been opened.' % id)
 
     _addressed = re.compile('^([^ :]+):')

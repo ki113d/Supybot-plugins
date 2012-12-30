@@ -54,9 +54,22 @@ Twitter = conf.registerPlugin('Twitter')
 # This is where your configuration variables (if any) should go.  For example:
 # conf.registerGlobalValue(Twitter, 'someConfigVariableName',
 #     registry.Boolean(False, _("""Help for someConfigVariableName.""")))
+
+conf.registerChannelValue(Twitter, 'prefixusername',
+        registry.Boolean(True, _("""Determines whether or not the name of the
+        user posting a tweet will be shown prefixed.""")))
+
 conf.registerGroup(Twitter, 'accounts')
 
 helpGetToken = _('running get_access_token.py is a way to get it')
+
+conf.registerGroup(Twitter, 'consumer')
+conf.registerGlobalValue(Twitter.consumer, 'key',
+        registry.String('bItq1HZhBGyx5Y8ardIeQ',
+            _("""The consumer key of the application.""")))
+conf.registerGlobalValue(Twitter.consumer, 'secret',
+        registry.String('qjC6Ye6xSMM3XPLR3LLeMqOP4ri0rgoYFT2si1RpY',
+            _("""The consumer secret of the application."""), private=True))
 
 conf.registerGroup(Twitter.accounts, 'bot')
 conf.registerGlobalValue(Twitter.accounts.bot, 'key',
@@ -66,7 +79,7 @@ conf.registerGlobalValue(Twitter.accounts.bot, 'secret',
         registry.String('', _("""The Twitter Access Token secret for the bot's
         account (%s)""") % helpGetToken, private=True))
 conf.registerGlobalValue(Twitter.accounts.bot, 'api',
-        registry.String('https://api.twitter.com/1', _("""The URL to the
+        registry.String('https://api.twitter.com/1.1', _("""The URL to the
         base API URL (by default, it is Twitter.com, but you can use it
         for twitter-compatible services, such as identica/statusnet.""")))
 
@@ -77,10 +90,28 @@ conf.registerChannelValue(Twitter.accounts.channel, 'key',
 conf.registerChannelValue(Twitter.accounts.channel, 'secret',
         registry.String('', _("""The Twitter Access Token secret for this
         channel's account (%s)""") % helpGetToken, private=True))
-conf.registerGlobalValue(Twitter.accounts.channel, 'api',
-        registry.String('https://api.twitter.com/1', _("""The URL to the
+conf.registerChannelValue(Twitter.accounts.channel, 'api',
+        registry.String('https://api.twitter.com/1.1', _("""The URL to the
         base API URL (by default, it is Twitter.com, but you can use it
         for twitter-compatible services, such as identica/statusnet.""")))
+
+conf.registerGroup(Twitter, 'announce')
+conf.registerChannelValue(Twitter.announce, 'interval',
+        registry.NonNegativeInteger(0, _("""The interval (in seconds) between
+        two fetches of new tweets from the timeline. 0 (zero) disables this
+        feature.""")))
+conf.registerChannelValue(Twitter.announce, 'withid',
+        registry.Boolean(True, _("""Determines whether or not the ID of
+        announced tweets will be displayed.""")))
+conf.registerChannelValue(Twitter.announce, 'withshortid',
+        registry.Boolean(True, _("""Determines whether or not the ID of
+        announced tweets will be displayed.""")))
+conf.registerChannelValue(Twitter.announce, 'oneline',
+        registry.Boolean(True, _("""Determines whether or not all tweets will
+        be shown in one line.""")))
+conf.registerChannelValue(Twitter.announce, 'retweets',
+        registry.Boolean(True, _("""Determines whether or not the bot will
+        show retweets in addition to native tweets.""")))
 
 
 # vim:set shiftwidth=4 tabstop=4 expandtab textwidth=79:

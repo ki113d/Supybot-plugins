@@ -40,6 +40,7 @@ import supybot.world as world
 import supybot.log as log
 import supybot.conf as conf
 import supybot.utils as utils
+import supybot.ircdb as ircdb
 from supybot.commands import *
 import supybot.irclib as irclib
 import supybot.plugins as plugins
@@ -106,7 +107,7 @@ class WebStatsServerCallback(httpserver.SupyHTTPServerCallback):
                 response = 404
                 content_type = 'text/html'
                 output = """<p style="font-size: 20em">BAM!</p>
-                <p>You played with the URL, you losed.</p>"""
+                <p>You played with the URL, you lost.</p>"""
             elif splittedPath[1] in ('nicks', 'global', 'links') \
                     and path[-1]=='/'\
                     or splittedPath[1] == 'nicks' and \
@@ -114,7 +115,19 @@ class WebStatsServerCallback(httpserver.SupyHTTPServerCallback):
                 response = 200
                 content_type = 'text/html'
                 if splittedPath[1] == 'links':
-                    content_type = 'image/png'
+                    try:
+                        import pygraphviz
+                        content_type = 'image/png'
+                    except ImportError:
+                        content_type = 'text/plain'
+                        response = 501
+                        self.send_response(response)
+                        self.send_header('Content-type', content_type)
+                        self.end_headers()
+                        self.wfile.write('Links cannot be displayed; ask '
+                                'the bot owner to install python-pygraphviz.')
+                        self.wfile.close()
+                        return
                 assert len(splittedPath) > 2
                 chanName = splittedPath[2].replace('%20', '#')
                 getTemplate('listingcommons') # Reload
@@ -246,7 +259,7 @@ class WebStatsDB:
         if DEBUG or random.randint(0,50) == 10:
             self.refreshCache()
 
-    _regexpAddressedTo = re.compile('^(?P<nick>[^: ]+):')
+    _regexpAddressedTo = re.compile('^(?P<nick>[^a-zA-Z0-9]+):')
     def refreshCache(self):
         """Clears the cache tables, and populate them"""
         self._truncateCache()
@@ -442,6 +455,12 @@ class WebStatsDB:
                           WHERE chan=?""", (chanName,))
         return cursor
 
+    def clearChannel(self, channel):
+        cursor = self._conn.cursor()
+        for table in ('messages', 'moves', 'links_cache', 'chans_cache',
+                'nicks_cache'):
+            cursor.execute('DELETE FROM %s WHERE chan=?' % table, (channel,))
+
 class WebStats(callbacks.Plugin):
     def __init__(self, irc):
         self.__parent = super(WebStats, self)
@@ -459,6 +478,23 @@ class WebStats(callbacks.Plugin):
         httpserver.unhook('webstats')
         self.__parent.die()
 
+    def clear(self, irc, msg, args, channel, optlist):
+        """[<channel>]
+
+        Clear database for the <channel>. If <channel> is not given,
+        it defaults to the current channel."""
+        capability = ircdb.makeChannelCapability(channel, 'op')
+        if not ircdb.checkCapability(msg.prefix, capability):
+            irc.errorNoCapability(capability, Raise=True)
+        if not optlist:
+            irc.reply(_('Running this command will wipe all webstats data '
+                'for the channel. If you are sure you want to do this, '
+                'add the --confirm switch.'))
+            return
+        self.db.clearChannel(channel)
+        irc.replySuccess()
+    clear = wrap(clear, ['channel', getopts({'confirm': ''})])
+
     def doPrivmsg(self, irc, msg):
         channel = msg.args[0]
         if not channel.startswith('#'):
@@ -469,6 +505,9 @@ class WebStats(callbacks.Plugin):
             return
         content = msg.args[1]
         nick = msg.prefix.split('!')[0]
+        if nick in self.registryValue('channel.excludenicks', channel) \
+                .split(' '):
+            return
         self.db.recordMessage(channel, nick, content)
     doNotice = doPrivmsg
 
@@ -477,6 +516,9 @@ class WebStats(callbacks.Plugin):
         if not self.registryValue('channel.enable', channel):
             return
         nick = msg.prefix.split('!')[0]
+        if nick in self.registryValue('channel.excludenicks', channel) \
+                .split(' '):
+            return
         self.db.recordMove(channel, nick, 'join')
 
     def doPart(self, irc, msg):
@@ -488,6 +530,9 @@ class WebStats(callbacks.Plugin):
         else:
             message = ''
         nick = msg.prefix.split('!')[0]
+        if nick in self.registryValue('channel.excludenicks', channel) \
+                .split(' '):
+            return
         self.db.recordMove(channel, nick, 'part', message)
 
     def doQuit(self, irc, msg):
@@ -497,6 +542,9 @@ class WebStats(callbacks.Plugin):
         else:
             message = ''
         for channel in self.ircstates[irc].channels:
+            if nick in self.registryValue('channel.excludenicks', channel) \
+                    .split(' '):
+                continue
             if self.registryValue('channel.enable', channel) and \
                 msg.nick in self.ircstates[irc].channels[channel].users:
                 self.db.recordMove(channel, nick, 'quit', message)
@@ -507,6 +555,9 @@ class WebStats(callbacks.Plugin):
         else:
             message = ''
         for channel in self.ircstates[irc].channels:
+            if nick in self.registryValue('channel.excludenicks', channel) \
+                    .split(' '):
+                continue
             if self.registryValue('channel.enable', channel) and \
                 msg.nick in self.ircstates[irc].channels[channel].users:
                 self.db.recordMove(channel, nick, 'nick', message)
@@ -517,6 +568,9 @@ class WebStats(callbacks.Plugin):
         else:
             message = ''
         for channel in self.ircstates[irc].channels:
+            if nick in self.registryValue('channel.excludenicks', channel) \
+                    .split(' '):
+                continue
             if self.registryValue('channel.enable', channel) and \
                 msg.nick in self.ircstates[irc].channels[channel].users:
                 self.db.recordMove(channel, nick, 'kicker', message)

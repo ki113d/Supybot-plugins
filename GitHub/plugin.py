@@ -66,8 +66,9 @@ class GithubCallback(httpserver.SupyHTTPServerCallback):
     index and try out other plugins (if any).""")
     def doPost(self, handler, path, form):
         if not handler.address_string().endswith('.rs.github.com') and \
-                not handler.address_string().endswith('.cloud-ips.com'):
-            log.warning("""'%s' tryed to act as a web hook for Github,
+                not handler.address_string().endswith('.cloud-ips.com') and \
+                not handler.address_string() == 'localhost':
+            log.warning("""'%s' tried to act as a web hook for Github,
             but is not GitHub.""" % handler.address_string())
         else:
             self.plugin.announce.onPayload(json.loads(form['payload'].value))
@@ -118,8 +119,8 @@ class GitHub(callbacks.Plugin):
 
                 if status:
                     url = url2
-            except:
-                pass
+            except Exception as e:
+                log.error('Cannot connect to ur1.ca: %s' % e)
 
             s = _('%s/%s (in %s): %s committed %s %s') % \
                     (payload['repository']['owner']['name'],
@@ -168,7 +169,7 @@ class GitHub(callbacks.Plugin):
             announces = [x.split(' | ') for x in announces]
             output = {}
             for repo, chan in announces:
-                if chan not in output:
+                if repo not in output:
                     output[repo] = []
                 output[repo].append(chan)
             return output
@@ -226,7 +227,11 @@ class GitHub(callbacks.Plugin):
 
     class repo(callbacks.Commands):
         def _url(self):
-            return instance.registryValue('api.url')
+            url = instance.registryValue('api.url')
+            if url == 'http://github.com/api/v2/json': # old api
+                url = 'https://api.github.com'
+                instance.setRegistryValue('api.url', value=url)
+            return url
 
         @internationalizeDocstring
         def search(self, irc, msg, args, search, optlist):
@@ -239,12 +244,12 @@ class GitHub(callbacks.Plugin):
             for name, value in optlist:
                 if name in args:
                     args[name] = value
-            results = query(self,'repos/search',urllib.quote_plus(search),args)
+            results = query(self, 'legacy/repos/search',
+                    urllib.quote_plus(search), args)
             reply = ' & '.join('%s/%s' % (x['owner'], x['name'])
                                for x in results['repositories'])
             if reply == '':
-                irc.error(_('No repositories matches your search. Try to '
-                            'develop this software yourself ;)'))
+                irc.error(_('No repositories matches your search.'))
             else:
                 irc.reply(reply.encode('utf8'))
         search = wrap(search, ['something',
@@ -273,8 +278,7 @@ class GitHub(callbacks.Plugin):
                             # 1. it wouldn't break anything
                             # 2. it enhances cross-compatiblity
                             pass
-            results = query(self, 'repos/show', '%s/%s' % (owner, name), {})
-            results = results['repository']
+            results = query(self, 'repos', '%s/%s' % (owner, name), {})
             output = []
             for key, value in results.items():
                 if key in enabled:

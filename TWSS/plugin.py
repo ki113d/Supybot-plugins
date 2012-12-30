@@ -1,5 +1,5 @@
 ###
-# Copyright (c) 2011, Valentin Lorentz
+# Copyright (c) 2012, Valentin Lorentz
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -28,32 +28,45 @@
 
 ###
 
-import supybot.conf as conf
-import supybot.registry as registry
+import threading
 
-try:
-    from supybot.i18n import PluginInternationalization
-    from supybot.i18n import internationalizeDocstring
-    _ = PluginInternationalization('Botnet')
-except:
-    # This are useless functions that's allow to run the plugin on a bot
-    # without the i18n plugin
-    _ = lambda x:x
-    internationalizeDocstring = lambda x:x
+import supybot.utils as utils
+from supybot.commands import *
+import supybot.plugins as plugins
+import supybot.ircutils as ircutils
+import supybot.callbacks as callbacks
+from supybot.i18n import PluginInternationalization, internationalizeDocstring
 
-def configure(advanced):
-    # This will be called by supybot to configure this module.  advanced is
-    # a bool that specifies whether the user identified himself as an advanced
-    # user or not.  You should effect your configuration by manipulating the
-    # registry as appropriate.
-    from supybot.questions import expect, anything, something, yn
-    conf.registerPlugin('Botnet', True)
+_ = PluginInternationalization('TWSS')
+
+class Jenny:
+    _msg = None
+    def say(self, msg):
+        self._msg = msg
+
+@internationalizeDocstring
+class TWSS(callbacks.Plugin):
+    """Add the help for "@plugin help TWSS" here
+    This should describe *how* to use this plugin."""
+
+    def __init__(self, irc):
+        super(TWSS, self).__init__(irc)
+        self._twss = None
+        threading.Thread(target=self._import_twss).start()
+
+    def _import_twss(self):
+        import twss
+        self._twss = twss
+
+    def doPrivmsg(self, irc, msg):
+        if self.registryValue('enable', msg.args[0]) and self._twss:
+            jenni = Jenny()
+            self._twss.say_it(jenni, msg.args[1])
+            if jenni._msg:
+                irc.reply(jenni._msg)
 
 
-Botnet = conf.registerPlugin('Botnet')
-# This is where your configuration variables (if any) should go.  For example:
-# conf.registerGlobalValue(Botnet, 'someConfigVariableName',
-#     registry.Boolean(False, _("""Help for someConfigVariableName.""")))
+Class = TWSS
 
 
-# vim:set shiftwidth=4 tabstop=4 expandtab textwidth=79:
+# vim:set shiftwidth=4 softtabstop=4 expandtab textwidth=79:

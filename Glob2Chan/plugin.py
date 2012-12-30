@@ -28,20 +28,69 @@
 
 ###
 
+from django.contrib.gis.geoip import GeoIP
+
 import supybot.utils as utils
+import supybot.world as world
 from supybot.commands import *
 import supybot.plugins as plugins
 import supybot.ircmsgs as ircmsgs
 import supybot.ircutils as ircutils
 import supybot.callbacks as callbacks
+import supybot.httpserver as httpserver
 
+class Glob2ChanCallback(httpserver.SupyHTTPServerCallback):
+    name = "Glob2 server notifications"
+    defaultResponse = """
+    You shouldn't be there, this subfolder is not for you. Go back to the
+    index and try out other plugins (if any)."""
+    def doGet(self, handler, path):
+        host = handler.address_string()
+        if host == 'localhost':
+            assert path.startswith('/status/')
+            status = path[len('/status/'):].replace('/', ' ')
+            self.plugin._announce(ircutils.bold('[YOG]') +
+                    ' YOG server at %s is %s.' % (host, status))
+            self.send_response(200)
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            self.wfile.write('Channel notified.')
+        else:
+            self.send_response(403)
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            self.wfile.write('Not authorized.')
+
+instance = None
 
 class Glob2Chan(callbacks.Plugin):
+    def __init__(self, irc):
+        global instance
+        self.__parent = super(Glob2Chan, self)
+        callbacks.Plugin.__init__(self, irc)
+        instance = self
+
+        callback = Glob2ChanCallback()
+        callback.plugin = self
+        httpserver.hook('glob2', callback)
+        self._users = {}
+    def die(self):
+        self.__parent.die()
+        httpserver.unhook('glob2')
+
+    def _announce(self, message):
+        for irc in world.ircs:
+            if '#glob2' in irc.state.channels:
+                break
+        assert '#glob2' in irc.state.channels
+        irc.queueMsg(ircmsgs.privmsg('#glob2', message))
+
     def doJoin(self, irc, msg):
         channel = msg.args[0]
         if channel != '#glob2':
             return
         nick = msg.nick
+        self._users.update({msg.nick: msg.prefix.split('@')[1]})
         if nick.startswith('[YOG]') and \
                 nick not in self.registryValue('nowelcome').split(' '):
             irc.queueMsg(ircmsgs.privmsg(nick, 'Hi %s, welcome to the '
@@ -55,12 +104,15 @@ class Glob2Chan(callbacks.Plugin):
     def do311(self, irc, msg):
         nick = msg.args[1]
         realname = msg.args[5]
+        hostname = self._users.pop(nick)
         try:
             version = 'Glob2 version %s' % realname.split('-')[1]
         except:
             version = 'unknown version'
-        irc.queueMsg(ircmsgs.privmsg('#glob2', 'Welcome to %s, running %s' % \
-            (nick, version)))
+        g = GeoIP()
+        country = g.country(hostname)['country_name']
+        irc.queueMsg(ircmsgs.privmsg('#glob2', ('Welcome to %s, running %s '
+            'and connecting from %s.') % (nick, version, country)))
 
     def g2help(self, irc, msg, args, mode):
         """[{irc|yog}]

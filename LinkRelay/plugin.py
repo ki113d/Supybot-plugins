@@ -89,7 +89,7 @@ class LinkRelay(callbacks.Plugin):
                       "to reload the configuration if you use the Config "
                       "plugin.")
 
-    def _loadFromConfig(self):
+    def _loadFromConfig(self, name=None):
         self.relays = []
         for relay in self.registryValue('relays').split(' || '):
             if relay.endswith('|'):
@@ -97,13 +97,16 @@ class LinkRelay(callbacks.Plugin):
             relay = relay.split(' | ')
             if not len(relay) == 5:
                 continue
-            self.relays.append(self.Relay(relay[0],
+            try:
+                self.relays.append(self.Relay(relay[0],
                                           relay[1],
                                           relay[2],
                                           relay[3],
                                           re.compile('^%s$' % relay[0], re.I),
                                           re.compile('^%s$' % relay[1]),
                                           re.compile(relay[4])))
+            except:
+                log.error('Failed adding relay: %r' % relay)
 
         self.nickSubstitutions = {}
         for substitute in self.registryValue('substitutes').split(' || '):
@@ -130,6 +133,8 @@ class LinkRelay(callbacks.Plugin):
         color = self.simpleHash(nick)
         if nick in self.nickSubstitutions:
             nick = self.nickSubstitutions[nick]
+        if not self.registryValue('nicks', channel):
+            nick = ''
         if re.match('^\x01ACTION .*\x01$', text):
             text = text.strip('\x01')
             text = text[ 7 : ]
@@ -283,7 +288,8 @@ class LinkRelay(callbacks.Plugin):
             elif relay.targetIRC.zombie:
                 self.log.info('LinkRelay:  IRC %s appears to be a zombie'%
                               relay.targetNetwork)
-            elif relay.targetChannel not in relay.targetIRC.state.channels:
+            elif irc.isChannel(relay.targetChannel) and \
+                    relay.targetChannel not in relay.targetIRC.state.channels:
                 self.log.info('LinkRelay:  I\'m not in in %s on %s' %
                               (relay.targetChannel, relay.targetNetwork))
             else:
@@ -299,6 +305,8 @@ class LinkRelay(callbacks.Plugin):
 
         if channel is None:
             for relay in self.relays:
+                if not relay.hasSourceIRCChannels:
+                    continue
                 for channel in relay.sourceIRCChannels:
                     new_s = format_(relay, s, args)
                     if nick in relay.sourceIRCChannels[channel].users and \
